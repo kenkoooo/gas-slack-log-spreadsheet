@@ -1,16 +1,13 @@
-// Configuration: Obtain Slack web API token at https://api.slack.com/web
-var API_TOKEN = PropertiesService.getScriptProperties().getProperty('slack_api_token');
+var API_TOKEN = PropertiesService.getScriptProperties().getProperty("slack_api_token");
 if (!API_TOKEN) {
-    throw 'You should set "slack_api_token" property from [File] > [Project properties] > [Script properties]';
+    throw "You should set 'slack_api_token' property from [File] > [Project properties] > [Script properties]";
 }
-var FOLDER_NAME = 'Slack Logs';
-/**** Do not edit below unless you know what you are doing ****/
+var FOLDER_NAME = "Slack Logs";
 var COL_LOG_TIMESTAMP = 1;
 var COL_LOG_USER = 2;
 var COL_LOG_TEXT = 3;
 var COL_LOG_RAW_JSON = 4;
 var COL_MAX = COL_LOG_RAW_JSON;
-// Slack offers 10,000 history logs for free plan teams
 var MAX_HISTORY_PAGINATION = 10;
 var HISTORY_COUNT_PER_PAGE = 1000;
 function StoreLogsDelta() {
@@ -29,7 +26,7 @@ var SlackChannelHistoryLogger = (function () {
         for (var k in params) {
             qparams.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
         }
-        url += qparams.join('&');
+        url += qparams.join("&");
         Logger.log("==> GET " + url);
         var resp = UrlFetchApp.fetch(url);
         var data = JSON.parse(resp.getContentText());
@@ -40,13 +37,13 @@ var SlackChannelHistoryLogger = (function () {
     };
     SlackChannelHistoryLogger.prototype.run = function () {
         var _this = this;
-        var usersResp = this.requestSlackAPI('users.list');
+        var usersResp = this.requestSlackAPI("users.list");
         usersResp.members.forEach(function (member) {
             _this.memberNames[member.id] = member.name;
         });
-        var teamInfoResp = this.requestSlackAPI('team.info');
+        var teamInfoResp = this.requestSlackAPI("team.info");
         this.teamName = teamInfoResp.team.name;
-        var channelsResp = this.requestSlackAPI('channels.list');
+        var channelsResp = this.requestSlackAPI("channels.list");
         for (var _i = 0, _a = channelsResp.channels; _i < _a.length; _i++) {
             var ch = _a[_i];
             this.importChannelHistoryDelta(ch);
@@ -73,7 +70,7 @@ var SlackChannelHistoryLogger = (function () {
             dateString = this.formatDate(d);
         }
         else {
-            dateString = '' + d;
+            dateString = "" + d;
         }
         var spreadsheet;
         var sheetByID = {};
@@ -93,7 +90,7 @@ var SlackChannelHistoryLogger = (function () {
         var sheets = spreadsheet.getSheets();
         sheets.forEach(function (s) {
             var name = s.getName();
-            var m = /^(.+) \((.+)\)$/.exec(name); // eg. "general (C123456)"
+            var m = /^(.+) \((.+)\)$/.exec(name);
             if (!m)
                 return;
             sheetByID[m[2]] = s;
@@ -114,10 +111,9 @@ var SlackChannelHistoryLogger = (function () {
         var _this = this;
         Logger.log("importChannelHistoryDelta " + ch.name + " (" + ch.id + ")");
         var now = new Date();
-        var oldest = '1'; // oldest=0 does not work
+        var oldest = "1";
         var existingSheet = this.getSheet(ch, now, true);
         if (!existingSheet) {
-            // try previous month
             now.setMonth(now.getMonth() - 1);
             existingSheet = this.getSheet(ch, now, true);
         }
@@ -141,8 +137,8 @@ var SlackChannelHistoryLogger = (function () {
             }
             dateStringToMessages[dateString].push(msg);
         });
-        for (var dateString in dateStringToMessages) {
-            var sheet = this.getSheet(ch, dateString);
+        var _loop_1 = function(dateString) {
+            var sheet = this_1.getSheet(ch, dateString);
             var timezone = sheet.getParent().getSpreadsheetTimeZone();
             var lastTS = 0;
             var lastRow = sheet.getLastRow();
@@ -159,7 +155,7 @@ var SlackChannelHistoryLogger = (function () {
             }).map(function (msg) {
                 var date = new Date(+msg.ts * 1000);
                 return [
-                    Utilities.formatDate(date, timezone, 'yyyy-MM-dd HH:mm:ss'),
+                    Utilities.formatDate(date, timezone, "yyyy-MM-dd HH:mm:ss"),
                     _this.memberNames[msg.user] || msg.username,
                     _this.unescapeMessageText(msg.text),
                     JSON.stringify(msg)
@@ -170,27 +166,26 @@ var SlackChannelHistoryLogger = (function () {
                     .getRange(lastRow + 1, 1, rows.length, COL_MAX);
                 range.setValues(rows);
             }
+        };
+        var this_1 = this;
+        for (var dateString in dateStringToMessages) {
+            _loop_1(dateString);
         }
     };
     SlackChannelHistoryLogger.prototype.formatDate = function (dt) {
-        return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM');
+        return Utilities.formatDate(dt, Session.getScriptTimeZone(), "yyyy-MM");
     };
     SlackChannelHistoryLogger.prototype.loadMessagesBulk = function (ch, options) {
         var _this = this;
         if (options === void 0) { options = {}; }
         var messages = [];
-        // channels.history will return the history from the latest to the oldest.
-        // If the result's "has_more" is true, the channel has more older history.
-        // In this case, use the result's "latest" value to the channel.history API parameters
-        // to obtain the older page, and so on.
-        options['count'] = HISTORY_COUNT_PER_PAGE;
-        options['channel'] = ch.id;
+        options["count"] = HISTORY_COUNT_PER_PAGE;
+        options["channel"] = ch.id;
         var loadSince = function (oldest) {
             if (oldest) {
-                options['oldest'] = oldest;
+                options["oldest"] = oldest;
             }
-            // order: recent-to-older
-            var resp = _this.requestSlackAPI('channels.history', options);
+            var resp = _this.requestSlackAPI("channels.history", options);
             messages = resp.messages.concat(messages);
             return resp;
         };
@@ -200,20 +195,19 @@ var SlackChannelHistoryLogger = (function () {
             resp = loadSince(resp.messages[0].ts);
             page++;
         }
-        // oldest-to-recent
         return messages.reverse();
     };
     SlackChannelHistoryLogger.prototype.unescapeMessageText = function (text) {
         var _this = this;
-        return (text || '')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&')
+        return (text || "")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, "'")
+            .replace(/&amp;/g, "&")
             .replace(/<@(.+?)>/g, function ($0, userID) {
             var name = _this.memberNames[userID];
             return name ? "@" + name : $0;
         });
     };
     return SlackChannelHistoryLogger;
-})();
+}());
