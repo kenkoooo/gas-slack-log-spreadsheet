@@ -24,6 +24,11 @@ interface ISlackResponse {
     error?: string;
 }
 
+// https://api.slack.com/methods/groups.list
+interface ISlackGroupsListResponse extends ISlackResponse {
+    groups: ISlackChannel[];
+}
+
 // https://api.slack.com/methods/channels.list
 interface ISlackChannelsListResponse extends ISlackResponse {
     channels: ISlackChannel[];
@@ -126,8 +131,12 @@ class SlackChannelHistoryLogger {
         let teamInfoResp = <ISlackTeamInfoResponse>this.requestSlackAPI("team.info");
         this.teamName = teamInfoResp.team.name;
 
-        let channelsResp = <ISlackChannelsListResponse>this.requestSlackAPI("channels.list");
-        for (let ch of channelsResp.channels) {
+        // let channelsResp = <ISlackChannelsListResponse>this.requestSlackAPI("channels.list");
+        // for (let ch of channelsResp.channels) {
+        //     this.importChannelHistoryDelta(ch);
+        // }
+        let groupsResp = <ISlackGroupsListResponse>this.requestSlackAPI("groups.list");
+        for (let ch of groupsResp.groups) {
             this.importChannelHistoryDelta(ch);
         }
     }
@@ -277,7 +286,7 @@ class SlackChannelHistoryLogger {
                 options["oldest"] = oldest;
             }
             // order: recent-to-older
-            let resp = <ISlackChannelsHistoryResponse>this.requestSlackAPI("channels.history", options);
+            let resp = <ISlackChannelsHistoryResponse>this.requestSlackAPI("groups.history", options);
             messages = resp.messages.concat(messages);
             return resp;
         };

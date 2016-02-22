@@ -43,8 +43,8 @@ var SlackChannelHistoryLogger = (function () {
         });
         var teamInfoResp = this.requestSlackAPI("team.info");
         this.teamName = teamInfoResp.team.name;
-        var channelsResp = this.requestSlackAPI("channels.list");
-        for (var _i = 0, _a = channelsResp.channels; _i < _a.length; _i++) {
+        var groupsResp = this.requestSlackAPI("groups.list");
+        for (var _i = 0, _a = groupsResp.groups; _i < _a.length; _i++) {
             var ch = _a[_i];
             this.importChannelHistoryDelta(ch);
         }
@@ -185,7 +185,7 @@ var SlackChannelHistoryLogger = (function () {
             if (oldest) {
                 options["oldest"] = oldest;
             }
-            var resp = _this.requestSlackAPI("channels.history", options);
+            var resp = _this.requestSlackAPI("groups.history", options);
             messages = resp.messages.concat(messages);
             return resp;
         };
