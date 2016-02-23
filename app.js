@@ -154,11 +154,7 @@ var SlackChannelHistoryLogger = (function () {
         Logger.log("importChannelHistoryDelta " + ch.name + " (" + ch.id + ")");
         var now = new Date();
         var oldest = "1";
-        var existingSheet = this.getSheet(ch, now, true);
-        if (!existingSheet) {
-            now.setMonth(now.getMonth() - 1);
-            existingSheet = this.getSheet(ch, now, true);
-        }
+        var existingSheet = this.getChannelSheet(ch, true);
         if (existingSheet) {
             var lastRow = existingSheet.getLastRow();
             try {
@@ -180,7 +176,7 @@ var SlackChannelHistoryLogger = (function () {
             dateStringToMessages[dateString].push(msg);
         });
         var _loop_1 = function(dateString) {
-            var sheet = this_1.getSheet(ch, dateString);
+            var sheet = this_1.getChannelSheet(ch);
             var timezone = sheet.getParent().getSpreadsheetTimeZone();
             var lastTS = 0;
             var lastRow = sheet.getLastRow();

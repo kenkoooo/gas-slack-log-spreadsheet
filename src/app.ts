@@ -139,52 +139,6 @@ class SlackChannelHistoryLogger {
     return folder;
   }
 
-  getSheet(ch: SlackChannel, d: Date | string, readonly: boolean = false): GoogleAppsScript.Spreadsheet.Sheet {
-    let dateString: string;
-    if (d instanceof Date) {
-      dateString = this.formatDate(d);
-    } else {
-      dateString = "" + d;
-    }
-
-    let spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
-    let sheetByID: { [id: string]: GoogleAppsScript.Spreadsheet.Sheet } = {};
-
-    let spreadsheetName = dateString;
-    let folder = this.getLogsFolder();
-    let it = folder.getFilesByName(spreadsheetName);
-    if (it.hasNext()) {
-      let file = it.next();
-      spreadsheet = SpreadsheetApp.openById(file.getId());
-    } else {
-      if (readonly) return null;
-
-      spreadsheet = SpreadsheetApp.create(spreadsheetName);
-      folder.addFile(DriveApp.getFileById(spreadsheet.getId()));
-    }
-
-    let sheets = spreadsheet.getSheets();
-    sheets.forEach((s: GoogleAppsScript.Spreadsheet.Sheet) => {
-      let name = s.getName();
-      let m = /^(.+) \((.+)\)$/.exec(name); // eg. "general (C123456)"
-      if (!m) return;
-      sheetByID[m[2]] = s;
-    });
-
-    let sheet = sheetByID[ch.id];
-    if (!sheet) {
-      if (readonly) return null;
-      sheet = spreadsheet.insertSheet();
-    }
-
-    let sheetName = `${ch.name} (${ch.id})`;
-    if (sheet.getName() !== sheetName) {
-      sheet.setName(sheetName);
-    }
-
-    return sheet;
-  }
-
   getChannelSheet(ch: SlackChannel, readonly: boolean = false): GoogleAppsScript.Spreadsheet.Sheet {
     let spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
     let sheetByID: { [id: string]: GoogleAppsScript.Spreadsheet.Sheet } = {};
@@ -230,12 +184,7 @@ class SlackChannelHistoryLogger {
     let now = new Date();
     let oldest = "1"; // oldest=0 does not work
 
-    let existingSheet = this.getSheet(ch, now, true);
-    if (!existingSheet) {
-      // try previous month
-      now.setMonth(now.getMonth() - 1);
-      existingSheet = this.getSheet(ch, now, true);
-    }
+    let existingSheet = this.getChannelSheet(ch, true);
     if (existingSheet) {
       let lastRow = existingSheet.getLastRow();
       try {
@@ -259,7 +208,7 @@ class SlackChannelHistoryLogger {
     });
 
     for (let dateString in dateStringToMessages) {
-      let sheet = this.getSheet(ch, dateString);
+      let sheet = this.getChannelSheet(ch);
 
       let timezone = sheet.getParent().getSpreadsheetTimeZone();
       let lastTS: number = 0;
