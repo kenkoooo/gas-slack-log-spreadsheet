@@ -1,8 +1,9 @@
 var API_TOKEN = PropertiesService.getScriptProperties().getProperty("slack_api_token");
+var BASE_URL = "https://slack.com/api/";
 if (!API_TOKEN) {
     throw "You should set 'slack_api_token' property from [File] > [Project properties] > [Script properties]";
 }
-var FOLDER_NAME = "Slack Logs";
+var FOLDER_NAME = "SlackLogs";
 var COL_LOG_TIMESTAMP = 1;
 var COL_LOG_USER = 2;
 var COL_LOG_TEXT = 3;
@@ -14,14 +15,13 @@ function StoreLogsDelta() {
     var logger = new SlackChannelHistoryLogger();
     logger.run();
 }
-;
 var SlackChannelHistoryLogger = (function () {
     function SlackChannelHistoryLogger() {
         this.memberNames = {};
     }
     SlackChannelHistoryLogger.prototype.requestSlackAPI = function (path, params) {
         if (params === void 0) { params = {}; }
-        var url = "https://slack.com/api/" + path + "?";
+        var url = "" + BASE_URL + path + "?";
         var qparams = [("token=" + encodeURIComponent(API_TOKEN))];
         for (var k in params) {
             qparams.push(encodeURIComponent(k) + "=" + encodeURIComponent(params[k]));
@@ -46,7 +46,12 @@ var SlackChannelHistoryLogger = (function () {
         var groupsResp = this.requestSlackAPI("groups.list");
         for (var _i = 0, _a = groupsResp.groups; _i < _a.length; _i++) {
             var ch = _a[_i];
-            this.importChannelHistoryDelta(ch);
+            this.importChannelHistoryDelta(ch, "groups");
+        }
+        var channelsResp = this.requestSlackAPI("channels.list");
+        for (var _b = 0, _c = channelsResp.channels; _b < _c.length; _b++) {
+            var ch = _c[_b];
+            this.importChannelHistoryDelta(ch, "channels");
         }
     };
     SlackChannelHistoryLogger.prototype.getLogsFolder = function () {
@@ -107,7 +112,44 @@ var SlackChannelHistoryLogger = (function () {
         }
         return sheet;
     };
-    SlackChannelHistoryLogger.prototype.importChannelHistoryDelta = function (ch) {
+    SlackChannelHistoryLogger.prototype.getChannelSheet = function (ch, readonly) {
+        if (readonly === void 0) { readonly = false; }
+        var spreadsheet;
+        var sheetByID = {};
+        var spreadsheetName = ch.name;
+        var folder = this.getLogsFolder();
+        var it = folder.getFilesByName(spreadsheetName);
+        if (it.hasNext()) {
+            var file = it.next();
+            spreadsheet = SpreadsheetApp.openById(file.getId());
+        }
+        else {
+            if (readonly)
+                return null;
+            spreadsheet = SpreadsheetApp.create(spreadsheetName);
+            folder.addFile(DriveApp.getFileById(spreadsheet.getId()));
+        }
+        var sheets = spreadsheet.getSheets();
+        sheets.forEach(function (s) {
+            var name = s.getName();
+            var m = /^(.+) \((.+)\)$/.exec(name);
+            if (!m)
+                return;
+            sheetByID[m[2]] = s;
+        });
+        var sheet = sheetByID[ch.id];
+        if (!sheet) {
+            if (readonly)
+                return null;
+            sheet = spreadsheet.insertSheet();
+        }
+        var sheetName = ch.name + " (" + ch.id + ")";
+        if (sheet.getName() !== sheetName) {
+            sheet.setName(sheetName);
+        }
+        return sheet;
+    };
+    SlackChannelHistoryLogger.prototype.importChannelHistoryDelta = function (ch, api) {
         var _this = this;
         Logger.log("importChannelHistoryDelta " + ch.name + " (" + ch.id + ")");
         var now = new Date();
@@ -127,7 +169,7 @@ var SlackChannelHistoryLogger = (function () {
                 Logger.log("while trying to parse the latest history item from existing sheet: " + e);
             }
         }
-        var messages = this.loadMessagesBulk(ch, { oldest: oldest });
+        var messages = this.loadMessagesBulk(ch, { oldest: oldest }, api);
         var dateStringToMessages = {};
         messages.forEach(function (msg) {
             var date = new Date(+msg.ts * 1000);
@@ -175,7 +217,7 @@ var SlackChannelHistoryLogger = (function () {
     SlackChannelHistoryLogger.prototype.formatDate = function (dt) {
         return Utilities.formatDate(dt, Session.getScriptTimeZone(), "yyyy-MM");
     };
-    SlackChannelHistoryLogger.prototype.loadMessagesBulk = function (ch, options) {
+    SlackChannelHistoryLogger.prototype.loadMessagesBulk = function (ch, options, api) {
         var _this = this;
         if (options === void 0) { options = {}; }
         var messages = [];
@@ -185,7 +227,7 @@ var SlackChannelHistoryLogger = (function () {
             if (oldest) {
                 options["oldest"] = oldest;
             }
-            var resp = _this.requestSlackAPI("groups.history", options);
+            var resp = _this.requestSlackAPI(api + ".history", options);
             messages = resp.messages.concat(messages);
             return resp;
         };

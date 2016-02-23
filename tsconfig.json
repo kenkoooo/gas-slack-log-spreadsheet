@@ -1,12 +1,17 @@
 {
-    "compilerOptions": {
-        "module": "commonjs",
-        "out": "app.js",
-        "target": "ES5",
-        "noImplicitAny": true
-    },
-    "files": [
-        "src/app.ts",
-        "typings/bundle.d.ts"
-    ]
+  "compilerOptions": {
+    "module": "commonjs",
+    "out": "app.js",
+    "target": "ES5",
+    "noImplicitAny": true
+  },
+  "formatCodeOptions": {
+    "indentSize": 2,
+    "tabSize": 2
+  },
+  "compileOnSave": true,
+  "files": [
+    "src/app.ts",
+    "typings/bundle.d.ts"
+  ]
 }
